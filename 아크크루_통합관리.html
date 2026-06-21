@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아크크루 통합관리</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1A1A1C; --panel:#252527; --panel-2:#2E2E31;
+  --border:#3A3A3E; --border-2:#4A4A50;
+  --text:#EDEBE5; --text-hi:#FAF8F3; --text-dim:#9A9A9A;
+  --accent:#5D54C4; --accent-hi:#8B83E8;
+  --success:#0E6B55; --danger:#F4A0A0;
+  --on-bg:#4A42A8; --on-text:#FFFFFF;
+  --tab-h:56px;
+}
+body{
+  background:var(--bg); color:var(--text); min-height:100vh;
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  font-size:16px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+
+/* ── 탭 네비게이션 ── */
+.tab-bar{
+  position:sticky; top:0; z-index:100;
+  background:var(--panel); border-bottom:1px solid var(--border);
+  display:flex; align-items:stretch; height:var(--tab-h);
+}
+.tab-btn{
+  flex:1; border:none; background:transparent; color:var(--text-dim);
+  font-size:15px; font-weight:600; font-family:inherit; cursor:pointer;
+  border-bottom:3px solid transparent; transition:color .15s, border-color .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.tab-btn.active{ color:var(--text-hi); border-bottom-color:var(--accent-hi); }
+
+/* ── 동기화 상태 ── */
+.sync-status{
+  position:fixed; bottom:16px; right:16px; z-index:200;
+  background:var(--panel); border:1px solid var(--border); border-radius:10px;
+  padding:8px 14px; font-size:13px; color:var(--text-dim);
+  display:flex; align-items:center; gap:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,.4); transition:opacity .3s;
+}
+.sync-dot{ width:8px; height:8px; border-radius:50%; background:#666; flex-shrink:0; }
+.sync-dot.connected{ background:#4CAF50; }
+.sync-dot.syncing{ background:#FF9800; animation:pulse .8s infinite; }
+.sync-dot.error{ background:#F44336; }
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── 페이지 ── */
+.page{ max-width:1000px; margin:0 auto; padding:18px 16px 80px; display:none; }
+.page.active{ display:block; }
+h1{ font-size:24px; color:var(--text-hi); margin-bottom:4px; }
+.sub{ font-size:14px; color:var(--text-dim); margin-bottom:18px; }
+
+/* ── 패널 ── */
+.panel{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px; }
+.panel h2{ font-size:17px; color:var(--text-hi); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.panel h2 .toggle{ margin-left:auto; }
+
+/* ── 입력 ── */
+.input-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:stretch; }
+select, input[type=text]{
+  background:var(--bg); color:var(--text); border:1px solid var(--border-2);
+  border-radius:10px; height:48px; padding:0 14px; font-size:17px; font-family:inherit;
+}
+select{ min-width:120px; }
+input[type=text]{ flex:1; min-width:160px; }
+input[type=text]:focus, select:focus{ outline:2px solid var(--accent-hi); outline-offset:-1px; }
+.hint{ font-size:13px; color:var(--text-dim); margin-top:10px; }
+
+/* ── 버튼 ── */
+.btn{
+  height:48px; padding:0 18px; border-radius:10px; font-size:16px; font-weight:600;
+  border:1px solid var(--border-2); background:var(--bg); color:var(--text);
+  cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  font-family:inherit; white-space:nowrap;
+}
+.btn:active{ opacity:.78; }
+.btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn.success{ background:var(--success); border-color:var(--success); color:#fff; }
+.btn.ghost{ background:transparent; }
+.btn.small{ height:40px; padding:0 13px; font-size:14px; }
+.btn.danger{ color:var(--danger); }
+
+/* ── 명단 칩 ── */
+.cat{ margin-bottom:20px; }
+.cat:last-child{ margin-bottom:0; }
+.cat-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.cat-head-left{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.cat-label{ font-size:13px; font-weight:700; padding:3px 11px; border-radius:6px; white-space:nowrap; }
+.cat-label.간사{ background:#4A42A8; color:#E5E3FB; }
+.cat-label.워십팀{ background:#0E6B55; color:#A8EDDA; }
+.cat-label.키즈{ background:#8A5510; color:#FAD9A0; }
+.cat-label.기타{ background:#4A4A46; color:#DEDCD2; }
+.cat-title{ font-size:18px; font-weight:700; color:var(--text-hi); }
+.cat-count{ font-size:14px; color:var(--text-dim); margin-left:8px; font-weight:500; }
+.cat-actions{ display:flex; gap:8px; }
+.tiles{ display:flex; flex-wrap:wrap; gap:10px; }
+.empty{ font-size:14px; color:var(--text-dim); padding:6px 2px; }
+
+.tile{
+  position:relative; display:inline-flex; align-items:center;
+  min-height:46px; padding:0 38px 0 16px; border-radius:11px;
+  border:1px solid var(--border-2); background:var(--panel-2); color:var(--text);
+  font-size:17px; font-weight:600; cursor:pointer; user-select:none;
+  -webkit-user-select:none; touch-action:none; -webkit-tap-highlight-color:transparent;
+  transition:background .08s, border-color .08s, transform .04s;
+}
+.tile:active{ transform:scale(.97); }
+.tile.on{ background:var(--on-bg); border-color:var(--accent-hi); color:#fff; }
+.tile.on::before{ content:"\2713"; margin-right:7px; font-weight:800; }
+.tile .del{
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  width:24px; height:24px; border-radius:50%; border:none;
+  background:rgba(255,255,255,.10); color:var(--text-dim);
+  font-size:15px; line-height:24px; text-align:center; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.tile.on .del{ color:#fff; background:rgba(0,0,0,.2); }
+.tile .del:active{ opacity:.6; }
+
+/* 인원파악 - 드래그 손잡이 */
+.tile.with-grip{ padding-left:34px; }
+.tile .grip{
+  position:absolute; left:4px; top:50%; transform:translateY(-50%);
+  width:24px; height:32px; display:flex; align-items:center; justify-content:center;
+  color:var(--text-dim); font-size:16px; cursor:grab; touch-action:none;
+}
+.tile.on .grip{ color:rgba(255,255,255,.75); }
+.drag-ghost{
+  position:fixed; transform:translate(-50%,-50%); z-index:9999; pointer-events:none;
+  padding:9px 15px; border-radius:11px; background:var(--accent); color:#fff;
+  font-size:17px; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.5); opacity:.93;
+}
+.cat.drop-target{ outline:2px dashed var(--accent-hi); outline-offset:5px; border-radius:10px; }
+
+/* 카테고리 관리 */
+.cat-mgr{ display:flex; flex-direction:column; gap:10px; }
+.cat-mgr-row{ display:flex; gap:8px; align-items:center; }
+.cat-mgr-row .grp{ width:120px; }
+.cat-mgr-row .nm{ flex:1; min-width:90px; }
+.cat-mgr-row input{ height:42px; font-size:15px; }
+.icon-btn{
+  width:40px; height:42px; flex:0 0 40px; border-radius:9px; border:1px solid var(--border-2);
+  background:var(--bg); color:var(--text); font-size:16px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.icon-btn.del-cat{ color:var(--danger); }
+
+/* 내보내기 */
+.meta-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.field{ display:flex; flex-direction:column; gap:5px; }
+.field label{ font-size:13px; color:var(--text-dim); }
+.field input{ height:44px; width:130px; }
+textarea{
+  width:100%; min-height:220px; resize:vertical;
+  background:var(--bg); color:var(--text); border:1px solid var(--border-2);
+  border-radius:10px; padding:14px; font-size:16px; line-height:1.7;
+  font-family:"Apple SD Gothic Neo","Malgun Gothic",monospace; margin-top:4px;
+}
+.copy-msg{ font-size:14px; color:#7FD9BD; margin-top:9px; height:18px; opacity:0; transition:opacity .25s; }
+.copy-msg.show{ opacity:1; }
+.export-btns{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.util-row{ display:flex; gap:10px; flex-wrap:wrap; }
+
+/* Firebase 설정 패널 */
+.firebase-setup{
+  background:#1e1a3a; border:1px solid var(--accent); border-radius:14px;
+  padding:20px; margin-bottom:16px;
+}
+.firebase-setup h2{ color:var(--accent-hi); margin-bottom:8px; font-size:17px; }
+.firebase-setup p{ font-size:14px; color:var(--text-dim); margin-bottom:14px; line-height:1.7; }
+.firebase-setup input{
+  width:100%; background:var(--bg); color:var(--text); border:1px solid var(--accent);
+  border-radius:10px; height:48px; padding:0 14px; font-size:15px; font-family:inherit;
+  margin-bottom:10px;
+}
+.firebase-setup input:focus{ outline:2px solid var(--accent-hi); outline-offset:-1px; }
+.step{ background:var(--panel-2); border-radius:10px; padding:12px 14px; margin-bottom:10px; font-size:13px; color:var(--text-dim); line-height:1.8; }
+.step b{ color:var(--text-hi); }
+.step code{ background:rgba(255,255,255,.08); padding:1px 6px; border-radius:4px; font-size:12px; color:#A8EDDA; }
+
+@media(max-width:640px){
+  .page{ padding:14px 12px 80px; }
+  .input-row .btn{ flex:1; }
+  select{ min-width:130px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 탭 바 -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-meal" onclick="switchTab('meal')">🍱 식사명단</button>
+  <button class="tab-btn" id="tab-crew" onclick="switchTab('crew')">👥 인원파악</button>
+</div>
+
+<!-- 동기화 상태 -->
+<div class="sync-status" id="syncStatus">
+  <div class="sync-dot" id="syncDot"></div>
+  <span id="syncText">연결 중...</span>
+</div>
+
+<!-- ════════════════════════════════════════════
+     탭 1: 식사명단
+════════════════════════════════════════════ -->
+<div class="page active" id="page-meal">
+  <h1>월요정기예배 식사명단</h1>
+  <div class="sub">이름을 추가하고, 칩을 클릭하거나 쓸어넘겨 선택하세요. 변경사항은 실시간으로 모든 기기에 공유됩니다.</div>
+
+  <!-- Firebase 초기 설정 (처음 한 번만) -->
+  <div class="firebase-setup" id="firebaseSetup" style="display:none">
+    <h2>🔥 Firebase 연결 설정 (최초 1회)</h2>
+    <p>아래 단계대로 Firebase 프로젝트를 연결하면, 모든 기기에서 실시간으로 데이터가 공유돼요.</p>
+    <div class="step">
+      <b>1단계</b> — <a href="https://console.firebase.google.com" target="_blank" style="color:#8B83E8">console.firebase.google.com</a> 접속 후 <b>프로젝트 만들기</b><br>
+      <b>2단계</b> — 왼쪽 메뉴 <b>빌드 → Realtime Database</b> → <b>데이터베이스 만들기</b> (테스트 모드)<br>
+      <b>3단계</b> — 프로젝트 설정(⚙️) → <b>웹 앱 추가(&lt;/&gt;)</b> → SDK 설정의 값들을 아래에 입력
+    </div>
+    <input type="text" id="fbApiKey" placeholder="apiKey (예: AIzaSy...)" autocomplete="off">
+    <input type="text" id="fbProjectId" placeholder="projectId (예: my-project-12345)" autocomplete="off">
+    <input type="text" id="fbDbUrl" placeholder="databaseURL (예: https://my-project-12345-default-rtdb.firebaseio.com)" autocomplete="off">
+    <button class="btn primary" onclick="saveFirebaseConfig()" style="width:100%">연결하기</button>
+  </div>
+
+  <!-- 이름 추가 -->
+  <div class="panel">
+    <h2>이름 추가</h2>
+    <div class="input-row">
+      <select id="mealCatSelect">
+        <option value="간사">간사</option>
+        <option value="워십팀">워십팀</option>
+        <option value="키즈">키즈</option>
+        <option value="기타">기타</option>
+      </select>
+      <input type="text" id="mealNameInput" placeholder="이름 입력 (띄어쓰기·쉼표로 여러 명)">
+      <button class="btn primary" id="mealAddBtn">추가</button>
+    </div>
+    <div class="hint">예: <b>김민수 이영희</b>처럼 여러 명을 한 번에 추가할 수 있어요.</div>
+  </div>
+
+  <!-- 명단 -->
+  <div class="panel">
+    <h2>명단 <span class="cat-count" id="mealGrandCount"></span></h2>
+    <div id="mealRoster"></div>
+  </div>
+
+  <!-- 카카오톡 내보내기 -->
+  <div class="panel">
+    <h2>카카오톡 내보내기</h2>
+    <div class="meta-row">
+      <div class="field">
+        <label>날짜 (O/OO)</label>
+        <input type="text" id="mealDateInput" placeholder="6/16">
+      </div>
+      <div class="field">
+        <label>불러내기 한 시간</label>
+        <input type="text" id="mealTimeInput" placeholder="오후 7:30">
+      </div>
+    </div>
+    <div class="export-btns">
+      <button class="btn primary" id="mealBuildBtn">불러오기</button>
+      <button class="btn" id="mealCopyBtn">복사</button>
+      <button class="btn success" id="mealExcelBtn">엑셀 내보내기</button>
+    </div>
+    <textarea id="mealOutText" placeholder="불러오기를 누르면 여기에 작성됩니다."></textarea>
+    <div class="copy-msg" id="mealCopyMsg">✅ 복사되었습니다</div>
+  </div>
+
+  <!-- 관리 -->
+  <div class="panel">
+    <h2>관리</h2>
+    <div class="util-row">
+      <button class="btn ghost small" id="mealClearSelBtn">전체 선택 해제</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     탭 2: 아크크루 인원파악
+════════════════════════════════════════════ -->
+<div class="page" id="page-crew">
+  <h1>아크크루 인원파악</h1>
+  <div class="sub">이름을 클릭·드래그하면 인원이 잡히고, ⠿ 손잡이를 끌면 다른 카테고리로 옮길 수 있어요. 변경사항은 실시간으로 공유됩니다.</div>
+
+  <!-- 이름 추가 -->
+  <div class="panel">
+    <h2>이름 추가</h2>
+    <div class="input-row">
+      <select id="crewCatSelect"></select>
+      <input type="text" id="crewNameInput" placeholder="이름 입력 (띄어쓰기·쉼표로 여러 명)">
+      <button class="btn primary" id="crewAddBtn">추가</button>
+    </div>
+    <div class="hint">예: <b>민주하 민재하</b>처럼 여러 명을 한 번에 추가할 수 있어요.</div>
+  </div>
+
+  <!-- 카테고리 관리 -->
+  <div class="panel">
+    <h2>카테고리 관리
+      <button class="btn ghost small toggle" id="crewCatToggle">펼치기</button>
+    </h2>
+    <div id="crewCatMgrBody" style="display:none">
+      <div class="cat-mgr" id="crewCatMgr"></div>
+      <button class="btn ghost small" id="crewAddCatBtn" style="margin-top:12px">+ 카테고리 추가</button>
+      <div class="hint">같은 <b>묶음</b> 이름을 적으면 카카오톡에서 묶여 나와요. (예: 묶음=초청자, 이름=모임O)</div>
+    </div>
+  </div>
+
+  <!-- 명단 -->
+  <div class="panel">
+    <h2>명단 <span class="cat-count" id="crewGrandCount"></span></h2>
+    <div id="crewRoster"></div>
+  </div>
+
+  <!-- 카카오톡 내보내기 -->
+  <div class="panel">
+    <h2>카카오톡 내보내기</h2>
+    <div class="meta-row">
+      <div class="field">
+        <label>날짜 (O/OO)</label>
+        <input type="text" id="crewDateInput" placeholder="6/16">
+      </div>
+      <div class="field">
+        <label>불러내기 한 시간</label>
+        <input type="text" id="crewTimeInput" placeholder="오후 7:30">
+      </div>
+    </div>
+    <div class="export-btns">
+      <button class="btn primary" id="crewBuildBtn">불러오기</button>
+      <button class="btn" id="crewCopyBtn">복사</button>
+    </div>
+    <textarea id="crewOutText" placeholder="불러오기를 누르면 여기에 작성됩니다."></textarea>
+    <div class="copy-msg" id="crewCopyMsg">✅ 복사되었습니다</div>
+  </div>
+
+  <!-- 관리 -->
+  <div class="panel">
+    <h2>관리</h2>
+    <div class="util-row">
+      <button class="btn ghost small" id="crewClearSelBtn">전체 선택 해제</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════
+   Firebase 설정 & 초기화
+══════════════════════════════════════════ */
+const FB_CONFIG_KEY = "arkcrew_firebase_config";
+let db = null;
+let fbApp = null;
+
+function getSavedConfig(){
+  try{ return JSON.parse(localStorage.getItem(FB_CONFIG_KEY)); } catch(e){ return null; }
+}
+function saveFirebaseConfig(){
+  const apiKey    = document.getElementById("fbApiKey").value.trim();
+  const projectId = document.getElementById("fbProjectId").value.trim();
+  const dbUrl     = document.getElementById("fbDbUrl").value.trim();
+  if(!apiKey || !projectId || !dbUrl){ alert("세 항목을 모두 입력해주세요."); return; }
+  localStorage.setItem(FB_CONFIG_KEY, JSON.stringify({ apiKey, projectId, databaseURL: dbUrl }));
+  location.reload();
+}
+
+function initFirebase(cfg){
+  return new Promise((resolve, reject) => {
+    if(typeof firebase !== "undefined"){
+      try{
+        fbApp = firebase.initializeApp(cfg);
+        db = firebase.database();
+        resolve();
+      } catch(e){ reject(e); }
+      return;
+    }
+    // Firebase SDK 동적 로드
+    const scripts = [
+      "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
+      "https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"
+    ];
+    let loaded = 0;
+    scripts.forEach(src => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = () => {
+        loaded++;
+        if(loaded === scripts.length){
+          try{
+            fbApp = firebase.initializeApp(cfg);
+            db = firebase.database();
+            resolve();
+          } catch(e){ reject(e); }
+        }
+      };
+      s.onerror = () => reject(new Error("Firebase SDK 로드 실패"));
+      document.head.appendChild(s);
+    });
+  });
+}
+
+/* ══════════════════════════════════════════
+   동기화 상태 UI
+══════════════════════════════════════════ */
+function setSyncStatus(state, text){
+  const dot = document.getElementById("syncDot");
+  const txt = document.getElementById("syncText");
+  dot.className = "sync-dot" + (state ? " " + state : "");
+  txt.textContent = text;
+}
+
+/* ══════════════════════════════════════════
+   탭 전환
+══════════════════════════════════════════ */
+function switchTab(tab){
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("page-"+tab).classList.add("active");
+  document.getElementById("tab-"+tab).classList.add("active");
+}
+
+/* ══════════════════════════════════════════
+   공통 유틸
+══════════════════════════════════════════ */
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const koSort = (a,b) => a.localeCompare(b,"ko");
+function autoDate(){ const d=new Date(); return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,"0")}`; }
+function autoTime(){
+  const d=new Date(); const ampm=d.getHours()<12?"오전":"오후";
+  const h12=d.getHours()%12||12;
+  return `${ampm} ${h12}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+function showCopyMsg(id){ const m=document.getElementById(id); m.classList.add("show"); setTimeout(()=>m.classList.remove("show"),2000); }
+
+/* ══════════════════════════════════════════
+   ① 식사명단
+══════════════════════════════════════════ */
+const MEAL_CATS = ["간사","워십팀","키즈","기타"];
+const PER_ROW = 5;
+let mealPeople = [];
+let mealRef = null;
+let mealRemoteUpdate = false;
+
+const mealTileById = {};
+const mealCountById = {};
+
+function mealLoad(data){
+  mealPeople = data ? Object.values(data) : [];
+  mealPeople.forEach(p => {
+    if(p.cat==="찬양팀") p.cat="워십팀";
+    if(!MEAL_CATS.includes(p.cat)) p.cat="기타";
+  });
+}
+
+function mealSave(){
+  if(!db) return;
+  setSyncStatus("syncing","저장 중...");
+  const obj = {};
+  mealPeople.forEach(p => { obj[p.id]=p; });
+  mealRef.set(obj).then(()=>setSyncStatus("connected","저장됨")).catch(()=>setSyncStatus("error","저장 실패"));
+}
+
+function mealRenderRoster(){
+  const roster = document.getElementById("mealRoster");
+  roster.innerHTML="";
+  for(const k in mealTileById) delete mealTileById[k];
+  for(const k in mealCountById) delete mealCountById[k];
+
+  MEAL_CATS.forEach(cat => {
+    const list = mealPeople.filter(p=>p.cat===cat).sort((a,b)=>koSort(a.name,b.name));
+    const onCount = list.filter(p=>p.present).length;
+
+    const wrap=document.createElement("div"); wrap.className="cat";
+    const head=document.createElement("div"); head.className="cat-head";
+
+    const left=document.createElement("div"); left.className="cat-head-left";
+    const label=document.createElement("span"); label.className="cat-label "+cat; label.textContent=cat;
+    const cnt=document.createElement("span"); cnt.className="cat-count";
+    cnt.textContent=`선택 ${onCount} / 전체 ${list.length}`;
+    mealCountById[cat]=cnt;
+    left.appendChild(label); left.appendChild(cnt);
+
+    const actions=document.createElement("div"); actions.className="cat-actions";
+    const allBtn=document.createElement("button"); allBtn.className="btn ghost small"; allBtn.textContent="전체선택";
+    allBtn.onclick=()=>mealSetCat(cat,true);
+    const noneBtn=document.createElement("button"); noneBtn.className="btn ghost small"; noneBtn.textContent="해제";
+    noneBtn.onclick=()=>mealSetCat(cat,false);
+    actions.appendChild(allBtn); actions.appendChild(noneBtn);
+    head.appendChild(left); head.appendChild(actions); wrap.appendChild(head);
+
+    const tiles=document.createElement("div"); tiles.className="tiles";
+    if(list.length===0){
+      const e=document.createElement("div"); e.className="empty"; e.textContent="아직 명단이 없어요."; tiles.appendChild(e);
+    } else {
+      list.forEach(p=>tiles.appendChild(mealMakeTile(p)));
+    }
+    wrap.appendChild(tiles); roster.appendChild(wrap);
+  });
+  mealRefreshGrand();
+}
+
+function mealMakeTile(p){
+  const t=document.createElement("div");
+  t.className="tile"+(p.present?" on":"");
+  t.dataset.id=p.id;
+  t.appendChild(document.createTextNode(p.name));
+  const del=document.createElement("button"); del.className="del"; del.textContent="\u00D7"; del.title="삭제";
+  del.onpointerdown=e=>e.stopPropagation();
+  del.onclick=e=>{ e.stopPropagation(); mealDeletePerson(p.id); };
+  t.appendChild(del);
+  t.addEventListener("pointerdown",e=>mealStartDrag(e,p));
+  mealTileById[p.id]=t;
+  return t;
+}
+
+function mealRefreshTileClass(p){ const t=mealTileById[p.id]; if(t) t.classList.toggle("on",!!p.present); }
+function mealRefreshGrand(){
+  document.getElementById("mealGrandCount").textContent=
+    `선택 ${mealPeople.filter(p=>p.present).length} / 전체 ${mealPeople.length}`;
+}
+function mealRefreshCounts(){
+  MEAL_CATS.forEach(cat=>{
+    const el=mealCountById[cat]; if(!el) return;
+    const list=mealPeople.filter(p=>p.cat===cat);
+    el.textContent=`선택 ${list.filter(p=>p.present).length} / 전체 ${list.length}`;
+  });
+  mealRefreshGrand();
+}
+
+let mealDragging=false, mealDragSetTo=true;
+function mealStartDrag(e,p){ mealDragging=true; mealDragSetTo=!p.present; mealApplyPresent(p,mealDragSetTo); e.preventDefault(); }
+function mealApplyPresent(p,val){ if(p.present===val) return; p.present=val; mealRefreshTileClass(p); mealRefreshCounts(); }
+document.addEventListener("pointermove",e=>{
+  if(!mealDragging) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY); if(!el) return;
+  const tile=el.closest&&el.closest(".tile"); if(!tile) return;
+  const p=mealPeople.find(x=>x.id===tile.dataset.id); if(p) mealApplyPresent(p,mealDragSetTo);
+});
+function mealEndDrag(){ if(mealDragging){ mealDragging=false; mealSave(); } }
+document.addEventListener("pointerup",mealEndDrag);
+document.addEventListener("pointercancel",mealEndDrag);
+
+function mealSetCat(cat,val){
+  mealPeople.filter(p=>p.cat===cat).forEach(p=>{ p.present=val; mealRefreshTileClass(p); });
+  mealRefreshCounts(); mealSave();
+}
+
+function mealAddNames(){
+  const sel=document.getElementById("mealCatSelect");
+  const input=document.getElementById("mealNameInput");
+  const cat=sel.value;
+  const names=input.value.split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+  if(names.length===0){ input.focus(); return; }
+
+  const existing=new Set(mealPeople.map(p=>p.name));
+  const seen=new Set(); const dups=[];
+  names.forEach(n=>{ if(existing.has(n)||seen.has(n)) dups.push(n); seen.add(n); });
+
+  let toAdd=names;
+  if(dups.length){
+    const uniq=[...new Set(dups)];
+    const ok=confirm(`⚠️ 이미 명단에 있는 이름이에요: ${uniq.join(", ")}\n\n[확인] 동명이인으로 그대로 추가\n[취소] 중복 이름은 빼고 추가`);
+    if(!ok){
+      const used=new Set(existing);
+      toAdd=names.filter(n=>{ if(used.has(n)) return false; used.add(n); return true; });
+    }
+  }
+  if(toAdd.length===0){ input.value=""; input.focus(); return; }
+  toAdd.forEach(name=>mealPeople.push({id:rid(),name,cat,present:false}));
+  input.value=""; mealSave(); mealRenderRoster(); input.focus();
+}
+
+function mealDeletePerson(id){ mealPeople=mealPeople.filter(p=>p.id!==id); mealSave(); mealRenderRoster(); }
+
+function mealBuildText(){
+  const dateStr=document.getElementById("mealDateInput").value.trim()||autoDate();
+  const timeStr=document.getElementById("mealTimeInput").value.trim()||autoTime();
+  const grouped={};
+  MEAL_CATS.forEach(c=>{ grouped[c]=mealPeople.filter(p=>p.cat===c&&p.present).map(p=>p.name).sort(koSort); });
+  const present=MEAL_CATS.filter(c=>grouped[c].length>0);
+  const total=present.reduce((s,c)=>s+grouped[c].length,0);
+  const lines=[];
+  lines.push(`${dateStr} 월요정기예배 식사 ${timeStr}`);
+  lines.push("");
+  present.forEach(cat=>{
+    lines.push(`${cat} (${grouped[cat].length}명)`);
+    for(let i=0;i<grouped[cat].length;i+=PER_ROW) lines.push(grouped[cat].slice(i,i+PER_ROW).join(" "));
+    lines.push("");
+  });
+  lines.push("총 인원: "+present.map(c=>`${c} ${grouped[c].length}`).join(" + ")+` = ${total}명`);
+  lines.push(""); lines.push("식사 명단에 체크 후 가져가주세요.");
+  document.getElementById("mealOutText").value=lines.join("\n");
+}
+
+function mealCopyText(){
+  const ta=document.getElementById("mealOutText");
+  if(!ta.value.trim()) mealBuildText();
+  if(!ta.value.trim()) return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(()=>showCopyMsg("mealCopyMsg")).catch(()=>{ ta.select(); document.execCommand("copy"); showCopyMsg("mealCopyMsg"); });
+  } else { ta.select(); document.execCommand("copy"); showCopyMsg("mealCopyMsg"); }
+}
+
+async function mealExportExcel(){
+  const grouped={};
+  MEAL_CATS.forEach(c=>{ grouped[c]=mealPeople.filter(p=>p.cat===c&&p.present).map(p=>p.name).sort(koSort); });
+  if(MEAL_CATS.every(c=>grouped[c].length===0)){ alert("선택된 명단이 없습니다."); return; }
+  const dateStr=document.getElementById("mealDateInput").value.trim()||autoDate();
+  const title=`${dateStr} 월요정기예배 식사명단`;
+  const COLW=10;
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("식사명단");
+  const thin={style:"thin",color:{argb:"FF000000"}};
+  const AB={top:thin,left:thin,bottom:thin,right:thin};
+  const C={horizontal:"center",vertical:"middle"};
+  const gc=(r,c)=>ws.getCell(r,c);
+
+  const kCols=grouped["간사"].length>0?Math.ceil(grouped["간사"].length/COLW):0;
+  const smCats=["워십팀","키즈","기타"].filter(c=>grouped[c].length>0);
+  const totalCols=Math.max(kCols*2,smCats.length*2,2);
+  ws.mergeCells(1,1,1,totalCols);
+  const tc=gc(1,1); tc.value=title; tc.font={bold:true,size:14}; tc.alignment=C;
+
+  let row=3;
+  if(grouped["간사"].length>0){
+    const names=grouped["간사"]; const nCols=Math.ceil(names.length/COLW); const bw=nCols*2;
+    ws.mergeCells(row,1,row,bw);
+    const hc=gc(row,1); hc.value=`간사 (${names.length}명)`; hc.font={bold:true,size:12}; hc.alignment=C;
+    hc.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF2F2F2"}};
+    for(let cc=1;cc<=bw;cc++) gc(row,cc).border=AB;
+    const hr=row; const ru=Math.min(names.length,COLW);
+    names.forEach((nm,i)=>{
+      const col=Math.floor(i/COLW); const rr=hr+1+(i%COLW);
+      const nc=gc(rr,col*2+1); nc.value=nm; nc.alignment=C; nc.border=AB; gc(rr,col*2+2).border=AB;
+    });
+    row=hr+1+ru+1;
+  }
+  if(smCats.length>0){
+    const hr=row; let maxR=0;
+    smCats.forEach((cat,idx)=>{
+      const names=grouped[cat]; const bc=idx*2+1;
+      ws.mergeCells(hr,bc,hr,bc+1);
+      const hc=gc(hr,bc); hc.value=`${cat} (${names.length}명)`; hc.font={bold:true,size:12}; hc.alignment=C;
+      hc.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFF2F2F2"}};
+      gc(hr,bc).border=AB; gc(hr,bc+1).border=AB;
+      names.forEach((nm,i)=>{ const rr=hr+1+i; const nc=gc(rr,bc); nc.value=nm; nc.alignment=C; nc.border=AB; gc(rr,bc+1).border=AB; });
+      maxR=Math.max(maxR,names.length);
+    });
+  }
+  for(let c=1;c<=totalCols;c++) ws.getColumn(c).width=(c%2===1)?11:5;
+  ws.getRow(1).height=24;
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  const url=URL.createObjectURL(blob); const a=document.createElement("a");
+  a.href=url; a.download=`${dateStr.replace("/","-")}_식사명단.xlsx`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },100);
+}
+
+/* ══════════════════════════════════════════
+   ② 아크크루 인원파악
+══════════════════════════════════════════ */
+const DEFAULT_CATS=[
+  {name:"간사 & 인턴십",group:""},
+  {name:"모임O",group:"초청자"},
+  {name:"모임X",group:"초청자"},
+  {name:"썸머미션",group:""},
+  {name:"OB",group:""}
+];
+let crewCats=[]; let crewPeople=[];
+let crewRef=null;
+
+const crewTileById={}; const crewCountById={};
+const grp=c=>(c.group||"").trim();
+const catLabel=c=>grp(c)?grp(c)+" ▸ "+c.name:c.name;
+
+function crewLoad(data){
+  if(data && data.categories) crewCats=Object.values(data.categories);
+  else crewCats=DEFAULT_CATS.map(d=>({id:rid(),name:d.name,group:d.group}));
+  if(data && data.people) crewPeople=Object.values(data.people);
+  else crewPeople=[];
+  const valid=new Set(crewCats.map(c=>c.id));
+  crewPeople.forEach(p=>{ if(!valid.has(p.catId)) p.catId=crewCats[0].id; });
+}
+
+function crewSave(){
+  if(!db) return;
+  setSyncStatus("syncing","저장 중...");
+  const obj={ categories:{}, people:{} };
+  crewCats.forEach(c=>{ obj.categories[c.id]=c; });
+  crewPeople.forEach(p=>{ obj.people[p.id]=p; });
+  crewRef.set(obj).then(()=>setSyncStatus("connected","저장됨")).catch(()=>setSyncStatus("error","저장 실패"));
+}
+
+function crewRenderRoster(){
+  const roster=document.getElementById("crewRoster");
+  roster.innerHTML="";
+  for(const k in crewTileById) delete crewTileById[k];
+  for(const k in crewCountById) delete crewCountById[k];
+
+  crewCats.forEach(cat=>{
+    const list=crewPeople.filter(p=>p.catId===cat.id).sort((a,b)=>koSort(a.name,b.name));
+    const onCount=list.filter(p=>p.present).length;
+
+    const wrap=document.createElement("div"); wrap.className="cat"; wrap.dataset.catId=cat.id;
+    const head=document.createElement("div"); head.className="cat-head";
+
+    const left=document.createElement("div");
+    const title=document.createElement("span"); title.className="cat-title"; title.textContent=catLabel(cat);
+    const cnt=document.createElement("span"); cnt.className="cat-count";
+    cnt.textContent=`잡힌 ${onCount} / 전체 ${list.length}`;
+    crewCountById[cat.id]=cnt;
+    left.appendChild(title); left.appendChild(cnt);
+
+    const actions=document.createElement("div"); actions.className="cat-actions";
+    const allBtn=document.createElement("button"); allBtn.className="btn ghost small"; allBtn.textContent="전체선택";
+    allBtn.onclick=()=>crewSetCat(cat.id,true);
+    const noneBtn=document.createElement("button"); noneBtn.className="btn ghost small"; noneBtn.textContent="해제";
+    noneBtn.onclick=()=>crewSetCat(cat.id,false);
+    actions.appendChild(allBtn); actions.appendChild(noneBtn);
+    head.appendChild(left); head.appendChild(actions); wrap.appendChild(head);
+
+    const tiles=document.createElement("div"); tiles.className="tiles";
+    if(list.length===0){
+      const e=document.createElement("div"); e.className="empty"; e.textContent="아직 명단이 없어요."; tiles.appendChild(e);
+    } else {
+      list.forEach(p=>tiles.appendChild(crewMakeTile(p)));
+    }
+    wrap.appendChild(tiles); roster.appendChild(wrap);
+  });
+  crewRefreshGrand();
+}
+
+function crewMakeTile(p){
+  const t=document.createElement("div"); t.className="tile with-grip"+(p.present?" on":""); t.dataset.id=p.id;
+  const grip=document.createElement("span"); grip.className="grip"; grip.textContent="\u283F"; grip.title="드래그하여 카테고리 이동";
+  grip.onpointerdown=e=>crewStartMove(e,p);
+  t.appendChild(grip);
+  t.appendChild(document.createTextNode(p.name));
+  const del=document.createElement("button"); del.className="del"; del.textContent="\u00D7"; del.title="삭제";
+  del.onpointerdown=e=>e.stopPropagation();
+  del.onclick=e=>{ e.stopPropagation(); crewDeletePerson(p.id); };
+  t.appendChild(del);
+  t.addEventListener("pointerdown",e=>crewStartDrag(e,p));
+  crewTileById[p.id]=t;
+  return t;
+}
+
+function crewRefreshTileClass(p){ const t=crewTileById[p.id]; if(t) t.classList.toggle("on",!!p.present); }
+function crewRefreshGrand(){
+  document.getElementById("crewGrandCount").textContent=
+    `잡힌 ${crewPeople.filter(p=>p.present).length} / 전체 ${crewPeople.length}`;
+}
+function crewRefreshCounts(){
+  crewCats.forEach(cat=>{
+    const el=crewCountById[cat.id]; if(!el) return;
+    const list=crewPeople.filter(p=>p.catId===cat.id);
+    el.textContent=`잡힌 ${list.filter(p=>p.present).length} / 전체 ${list.length}`;
+  });
+  crewRefreshGrand();
+}
+
+let crewDragging=false, crewDragSetTo=true;
+function crewStartDrag(e,p){ crewDragging=true; crewDragSetTo=!p.present; crewApplyPresent(p,crewDragSetTo); e.preventDefault(); }
+function crewApplyPresent(p,val){ if(p.present===val) return; p.present=val; crewRefreshTileClass(p); crewRefreshCounts(); }
+document.addEventListener("pointermove",e=>{
+  if(!crewDragging) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY); if(!el) return;
+  const tile=el.closest&&el.closest(".tile"); if(!tile) return;
+  const p=crewPeople.find(x=>x.id===tile.dataset.id); if(p) crewApplyPresent(p,crewDragSetTo);
+});
+function crewEndDrag(){ if(crewDragging){ crewDragging=false; crewSave(); } }
+document.addEventListener("pointerup",crewEndDrag);
+document.addEventListener("pointercancel",crewEndDrag);
+
+// 카테고리 이동 드래그
+let crewMoving=null, crewGhostEl=null, crewDropCatId=null;
+function crewStartMove(e,p){
+  e.preventDefault(); e.stopPropagation();
+  crewMoving=p; crewDropCatId=null;
+  crewGhostEl=document.createElement("div"); crewGhostEl.className="drag-ghost"; crewGhostEl.textContent=p.name;
+  document.body.appendChild(crewGhostEl);
+  crewPositionGhost(e);
+}
+function crewPositionGhost(e){ if(!crewGhostEl) return; crewGhostEl.style.left=e.clientX+"px"; crewGhostEl.style.top=e.clientY+"px"; }
+function crewClearDropHL(){ document.querySelectorAll(".cat.drop-target").forEach(x=>x.classList.remove("drop-target")); }
+document.addEventListener("pointermove",e=>{
+  if(!crewMoving) return;
+  crewPositionGhost(e);
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const cat=el&&el.closest&&el.closest(".cat");
+  const id=cat?cat.dataset.catId:null;
+  if(id!==crewDropCatId){ crewClearDropHL(); crewDropCatId=id; if(cat&&id!==crewMoving.catId) cat.classList.add("drop-target"); }
+});
+function crewEndMove(){
+  if(!crewMoving) return;
+  const p=crewMoving, target=crewDropCatId;
+  crewMoving=null; crewDropCatId=null;
+  if(crewGhostEl){ crewGhostEl.remove(); crewGhostEl=null; }
+  crewClearDropHL();
+  if(target&&target!==p.catId){ p.catId=target; crewSave(); crewRenderRoster(); }
+}
+document.addEventListener("pointerup",crewEndMove);
+document.addEventListener("pointercancel",crewEndMove);
+
+function crewSetCat(catId,val){
+  crewPeople.filter(p=>p.catId===catId).forEach(p=>{ p.present=val; crewRefreshTileClass(p); });
+  crewRefreshCounts(); crewSave();
+}
+
+function crewAddNames(){
+  const sel=document.getElementById("crewCatSelect");
+  const input=document.getElementById("crewNameInput");
+  const catId=sel.value;
+  const names=input.value.split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+  if(names.length===0){ input.focus(); return; }
+  const existing=new Set(crewPeople.map(p=>p.name));
+  const seen=new Set(); const dups=[];
+  names.forEach(n=>{ if(existing.has(n)||seen.has(n)) dups.push(n); seen.add(n); });
+  let toAdd=names;
+  if(dups.length){
+    const uniq=[...new Set(dups)];
+    const ok=confirm(`⚠️ 이미 명단에 있는 이름이에요: ${uniq.join(", ")}\n\n[확인] 동명이인으로 그대로 추가\n[취소] 중복 이름은 빼고 추가`);
+    if(!ok){ const used=new Set(existing); toAdd=names.filter(n=>{ if(used.has(n)) return false; used.add(n); return true; }); }
+  }
+  if(toAdd.length===0){ input.value=""; input.focus(); return; }
+  toAdd.forEach(name=>crewPeople.push({id:rid(),name,catId,present:false}));
+  input.value=""; crewSave(); crewRenderRoster(); input.focus();
+}
+function crewDeletePerson(id){ crewPeople=crewPeople.filter(p=>p.id!==id); crewSave(); crewRenderRoster(); }
+
+function crewRenderCatMgr(){
+  const box=document.getElementById("crewCatMgr"); box.innerHTML="";
+  crewCats.forEach((c,idx)=>{
+    const row=document.createElement("div"); row.className="cat-mgr-row";
+    const g=document.createElement("input"); g.type="text"; g.className="grp"; g.placeholder="묶음(선택)"; g.value=c.group||"";
+    g.oninput=()=>{ c.group=g.value; crewSave(); };
+    g.onchange=()=>{ crewRenderSelect(); crewRenderRoster(); };
+    const n=document.createElement("input"); n.type="text"; n.className="nm"; n.placeholder="카테고리 이름"; n.value=c.name;
+    n.oninput=()=>{ c.name=n.value; crewSave(); };
+    n.onchange=()=>{ crewRenderSelect(); crewRenderRoster(); };
+    const up=document.createElement("button"); up.className="icon-btn"; up.textContent="↑"; up.onclick=()=>crewMoveCat(idx,-1);
+    const down=document.createElement("button"); down.className="icon-btn"; down.textContent="↓"; down.onclick=()=>crewMoveCat(idx,1);
+    const del=document.createElement("button"); del.className="icon-btn del-cat"; del.textContent="✕"; del.onclick=()=>crewDeleteCat(c.id);
+    row.appendChild(g); row.appendChild(n); row.appendChild(up); row.appendChild(down); row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+function crewMoveCat(idx,dir){
+  const j=idx+dir; if(j<0||j>=crewCats.length) return;
+  const tmp=crewCats[idx]; crewCats[idx]=crewCats[j]; crewCats[j]=tmp;
+  crewSave(); crewRenderCatMgr(); crewRenderSelect(); crewRenderRoster();
+}
+function crewDeleteCat(id){
+  if(crewCats.length<=1){ alert("카테고리는 최소 1개는 있어야 해요."); return; }
+  const cnt=crewPeople.filter(p=>p.catId===id).length;
+  const c=crewCats.find(c=>c.id===id);
+  const msg=cnt>0?`'${catLabel(c)}' 에 ${cnt}명이 있어요. 카테고리와 이 인원을 모두 삭제할까요?`:`'${catLabel(c)}' 카테고리를 삭제할까요?`;
+  if(!confirm(msg)) return;
+  crewCats=crewCats.filter(c=>c.id!==id);
+  crewPeople=crewPeople.filter(p=>p.catId!==id);
+  crewSave(); crewRenderCatMgr(); crewRenderSelect(); crewRenderRoster();
+}
+function crewAddCat(){
+  crewCats.push({id:rid(),name:"새 카테고리",group:""});
+  crewSave(); crewRenderCatMgr(); crewRenderSelect(); crewRenderRoster();
+  const inputs=document.querySelectorAll("#crewCatMgr .nm");
+  const last=inputs[inputs.length-1]; if(last){ last.focus(); last.select(); }
+}
+function crewRenderSelect(){
+  const sel=document.getElementById("crewCatSelect"); const prev=sel.value; sel.innerHTML="";
+  crewCats.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=catLabel(c); sel.appendChild(o); });
+  if(crewCats.some(c=>c.id===prev)) sel.value=prev;
+}
+
+function crewBuildText(){
+  const dateStr=document.getElementById("crewDateInput").value.trim()||autoDate();
+  const timeStr=document.getElementById("crewTimeInput").value.trim()||autoTime();
+  const total=crewPeople.filter(p=>p.present).length;
+  const lines=[];
+  lines.push(`${dateStr} 아크크루 월요 정기예배 현황 (${timeStr})`);
+  lines.push(`📌 총 ${total}명`); lines.push("");
+  let i=0;
+  while(i<crewCats.length){
+    const g=grp(crewCats[i]);
+    if(g){
+      const members=[]; let j=i;
+      while(j<crewCats.length&&grp(crewCats[j])===g){ members.push(crewCats[j]); j++; }
+      const active=members.map(m=>({ m, names:crewPeople.filter(p=>p.catId===m.id&&p.present).map(p=>p.name).sort(koSort) })).filter(x=>x.names.length>0);
+      if(active.length){
+        lines.push(`✔️${g}`);
+        active.forEach(x=>{
+          lines.push(`-${x.m.name}`);
+          for(let ii=0;ii<x.names.length;ii+=PER_ROW) lines.push(x.names.slice(ii,ii+PER_ROW).join(" "));
+          lines.push("");
+        });
+      }
+      i=j;
+    } else {
+      const names=crewPeople.filter(p=>p.catId===crewCats[i].id&&p.present).map(p=>p.name).sort(koSort);
+      if(names.length){ lines.push(`✔️${crewCats[i].name}`); for(let ii=0;ii<names.length;ii+=PER_ROW) lines.push(names.slice(ii,ii+PER_ROW).join(" ")); lines.push(""); }
+      i++;
+    }
+  }
+  while(lines.length&&lines[lines.length-1]==="") lines.pop();
+  document.getElementById("crewOutText").value=lines.join("\n");
+}
+
+function crewCopyText(){
+  const ta=document.getElementById("crewOutText");
+  if(!ta.value.trim()) crewBuildText();
+  if(!ta.value.trim()) return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(()=>showCopyMsg("crewCopyMsg")).catch(()=>{ ta.select(); document.execCommand("copy"); showCopyMsg("crewCopyMsg"); });
+  } else { ta.select(); document.execCommand("copy"); showCopyMsg("crewCopyMsg"); }
+}
+
+/* ══════════════════════════════════════════
+   이벤트 연결
+══════════════════════════════════════════ */
+document.getElementById("mealAddBtn").onclick=mealAddNames;
+document.getElementById("mealNameInput").addEventListener("keydown",e=>{ if(e.isComposing||e.keyCode===229) return; if(e.key==="Enter"){ e.preventDefault(); mealAddNames(); } });
+document.getElementById("mealBuildBtn").onclick=mealBuildText;
+document.getElementById("mealCopyBtn").onclick=mealCopyText;
+document.getElementById("mealExcelBtn").onclick=mealExportExcel;
+document.getElementById("mealClearSelBtn").onclick=()=>{
+  if(mealPeople.some(p=>p.present)&&!confirm("모든 선택을 해제할까요?")) return;
+  mealPeople.forEach(p=>p.present=false); mealSave(); mealRenderRoster();
+};
+
+document.getElementById("crewAddBtn").onclick=crewAddNames;
+document.getElementById("crewNameInput").addEventListener("keydown",e=>{ if(e.isComposing||e.keyCode===229) return; if(e.key==="Enter"){ e.preventDefault(); crewAddNames(); } });
+document.getElementById("crewBuildBtn").onclick=crewBuildText;
+document.getElementById("crewCopyBtn").onclick=crewCopyText;
+document.getElementById("crewClearSelBtn").onclick=()=>{
+  if(crewPeople.some(p=>p.present)&&!confirm("모든 선택을 해제할까요?")) return;
+  crewPeople.forEach(p=>p.present=false); crewSave(); crewRenderRoster();
+};
+document.getElementById("crewAddCatBtn").onclick=crewAddCat;
+document.getElementById("crewCatToggle").onclick=()=>{
+  const body=document.getElementById("crewCatMgrBody");
+  const open=body.style.display!=="none";
+  body.style.display=open?"none":"block";
+  document.getElementById("crewCatToggle").textContent=open?"펼치기":"접기";
+};
+
+/* ══════════════════════════════════════════
+   앱 시작
+══════════════════════════════════════════ */
+async function startApp(){
+  const cfg=getSavedConfig();
+  if(!cfg){
+    document.getElementById("firebaseSetup").style.display="block";
+    setSyncStatus("error","Firebase 연결 필요");
+    // Firebase 없이 로컬 모드로 임시 실행
+    mealRenderRoster();
+    crewLoad(null); crewRenderCatMgr(); crewRenderSelect(); crewRenderRoster();
+    document.getElementById("mealDateInput").value=autoDate();
+    document.getElementById("mealTimeInput").value=autoTime();
+    document.getElementById("crewDateInput").value=autoDate();
+    document.getElementById("crewTimeInput").value=autoTime();
+    return;
+  }
+
+  setSyncStatus("syncing","Firebase 연결 중...");
+  try{
+    await initFirebase(cfg);
+    setSyncStatus("connected","연결됨");
+
+    // 식사명단 실시간 동기화
+    mealRef=db.ref("meal_roster");
+    mealRef.on("value", snapshot=>{
+      const data=snapshot.val();
+      mealLoad(data);
+      mealRenderRoster();
+    }, err=>setSyncStatus("error","연결 오류"));
+
+    // 인원파악 실시간 동기화
+    crewRef=db.ref("crew_roster");
+    crewRef.on("value", snapshot=>{
+      const data=snapshot.val();
+      crewLoad(data);
+      crewRenderCatMgr(); crewRenderSelect(); crewRenderRoster();
+    }, err=>setSyncStatus("error","연결 오류"));
+
+    document.getElementById("mealDateInput").value=autoDate();
+    document.getElementById("mealTimeInput").value=autoTime();
+    document.getElementById("crewDateInput").value=autoDate();
+    document.getElementById("crewTimeInput").value=autoTime();
+
+  } catch(e){
+    setSyncStatus("error","연결 실패 - 설정 확인");
+    console.error(e);
+    document.getElementById("firebaseSetup").style.display="block";
+    mealRenderRoster();
+    crewLoad(null); crewRenderCatMgr(); crewRenderSelect(); crewRenderRoster();
+  }
+}
+
+startApp();
+</script>
+</body>
+</html>
