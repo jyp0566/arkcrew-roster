@@ -57,14 +57,14 @@ h1{ font-size:24px; color:var(--text-hi); margin-bottom:4px; }
 
 /* ── 패널 ── */
 .panel{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px; }
-.panel h2{ font-size:17px; color:var(--text-hi); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.panel h2{ font-size:15px; color:var(--text-hi); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
 .panel h2 .toggle{ margin-left:auto; }
 
 /* ── 입력 ── */
 .input-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:stretch; }
 select, input[type=text]{
   background:var(--bg); color:var(--text); border:1px solid var(--border-2);
-  border-radius:10px; height:48px; padding:0 14px; font-size:17px; font-family:inherit;
+  border-radius:10px; height:48px; padding:0 14px; font-size:15px; font-family:inherit;
 }
 select{ min-width:120px; }
 input[type=text]{ flex:1; min-width:160px; }
@@ -105,7 +105,7 @@ input[type=text]:focus, select:focus{ outline:2px solid var(--accent-hi); outlin
   position:relative; display:inline-flex; align-items:center;
   min-height:46px; padding:0 38px 0 16px; border-radius:11px;
   border:1px solid var(--border-2); background:var(--panel-2); color:var(--text);
-  font-size:17px; font-weight:600; cursor:pointer; user-select:none;
+  font-size:15px; font-weight:600; cursor:pointer; user-select:none;
   -webkit-user-select:none; touch-action:none; -webkit-tap-highlight-color:transparent;
   transition:background .08s, border-color .08s, transform .04s;
 }
@@ -133,7 +133,7 @@ input[type=text]:focus, select:focus{ outline:2px solid var(--accent-hi); outlin
 .drag-ghost{
   position:fixed; transform:translate(-50%,-50%); z-index:9999; pointer-events:none;
   padding:9px 15px; border-radius:11px; background:var(--accent); color:#fff;
-  font-size:17px; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.5); opacity:.93;
+  font-size:15px; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.5); opacity:.93;
 }
 .cat.drop-target{ outline:2px dashed var(--accent-hi); outline-offset:5px; border-radius:10px; }
 
@@ -171,7 +171,7 @@ textarea{
   background:#1e1a3a; border:1px solid var(--accent); border-radius:14px;
   padding:20px; margin-bottom:16px;
 }
-.firebase-setup h2{ color:var(--accent-hi); margin-bottom:8px; font-size:17px; }
+.firebase-setup h2{ color:var(--accent-hi); margin-bottom:8px; font-size:15px; }
 .firebase-setup p{ font-size:14px; color:var(--text-dim); margin-bottom:14px; line-height:1.7; }
 .firebase-setup input{
   width:100%; background:var(--bg); color:var(--text); border:1px solid var(--accent);
@@ -213,7 +213,7 @@ textarea{
 .wc-field{ display:flex; align-items:center; gap:5px; font-size:14px; color:var(--text-dim); }
 .wc-field input{
   width:58px; background:var(--bg); color:var(--text-hi); border:1px solid var(--border-2);
-  border-radius:8px; height:40px; padding:0 6px; font-size:17px; font-weight:700;
+  border-radius:8px; height:40px; padding:0 6px; font-size:15px; font-weight:700;
   text-align:center; font-family:inherit;
 }
 .wc-field input:focus{ outline:2px solid var(--accent-hi); outline-offset:-1px; border-color:var(--accent); }
@@ -224,7 +224,7 @@ textarea{
 
 /* 월 요약 */
 .stat-card{ background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:16px; }
-.stat-card h2{ font-size:17px; color:var(--text-hi); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.stat-card h2{ font-size:15px; color:var(--text-hi); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
 .sum-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
 .sum-box{ background:var(--panel-2); border:1px solid var(--border-2); border-radius:11px; padding:12px; }
 .sum-box .label{ font-size:12px; color:var(--text-dim); margin-bottom:4px; }
